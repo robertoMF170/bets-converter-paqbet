@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SrRobs - Bets Converter</title>
+    <style>
+        :root {
+            --bg-color: #0f0f0f;
+            --surface-color: #1a1a1a;
+            --gold: #d4af37;
+            --red: #e50914;
+            --text-main: #e0e0e0;
+            --text-muted: #888;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .converter-card {
+            background-color: var(--surface-color);
+            width: 100%;
+            max-width: 450px;
+            padding: 30px;
+            border-radius: 12px;
+            border-top: 4px solid var(--red);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+        }
+
+        .header { text-align: center; margin-bottom: 25px; }
+        .header h1 { color: var(--gold); font-size: 24px; font-weight: 700; }
+        .header p { color: var(--text-muted); font-size: 14px; margin-top: 5px; }
+
+        .form-group { margin-bottom: 18px; }
+        label { display: block; margin-bottom: 8px; font-size: 14px; color: var(--gold); font-weight: 500; }
+        
+        input, select {
+            width: 100%;
+            padding: 12px;
+            background-color: var(--bg-color);
+            border: 1px solid #333;
+            color: white;
+            border-radius: 6px;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        input:focus, select:focus { border-color: var(--gold); }
+
+        button {
+            width: 100%;
+            padding: 14px;
+            background-color: var(--red);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: background-color 0.2s;
+        }
+
+        button:hover { background-color: #b70710; }
+
+        #response_div {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: var(--bg-color);
+            border: 1px dashed var(--gold);
+            border-radius: 6px;
+            min-height: 60px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-size: 16px;
+            text-align: center;
+        }
+
+        #response_div a {
+            display: block;
+            width: 100%;
+            color: var(--text-main);
+            text-decoration: none;
+            cursor: pointer;
+            -webkit-tap-highlight-color: var(--gold);
+        }
+
+        #response_div a:active { opacity: 0.6; }
+
+        #response_div h6 {
+            font-size: 34px;
+            font-weight: 800;
+            color: var(--gold);
+            letter-spacing: 3px;
+            margin: 10px 0;
+            word-break: break-all;
+        }
+
+        #response_div span { font-size: 16px; }
+
+        .copy-hint { font-size: 12px; color: var(--text-muted); margin-top: 10px; }
+
+        #copy_toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--gold);
+            color: #000;
+            padding: 10px 22px;
+            border-radius: 6px;
+            font-weight: 700;
+            opacity: 0;
+            transition: opacity .25s;
+            pointer-events: none;
+            z-index: 99;
+        }
+
+        #copy_toast.show { opacity: 1; }
+    </style>
+</head>
+<body>
+
+    <div class="converter-card">
+        <div class="header">
+            <h1>SrRobs</h1>
+            <p>Bets Converter</p>
+        </div>
+
+        <form id="convertForm">
+            <div class="form-group">
+                <label>Bet Code</label>
+                <input type="text" name="code" maxlength="10" required placeholder="Ex: M4JY8">
+            </div>
+
+            <div class="form-group">
+                <label>Convert From</label>
+                <select name="convert_from" required>
+                    <option value="">Selecione a origem</option>
+                    <option value="1xbet:xx">1xbet - Global</option>
+                    <option value="betandyou">BetAndYou</option>
+                    <option value="sportybet:ng">Sportybet - Nigeria</option>
+                    <option value="bet9ja">Bet9ja</option>
+                    <option value="22bet">22bet</option>
+                    <option value="megapari">Megapari</option>
+                    </select>
+            </div>
+
+            <div class="form-group">
+                <label>Convert To</label>
+                <select name="convert_to" required>
+                    <option value="">Selecione o destino</option>
+                    <option value="22bet">22bet</option>
+                    <option value="megapari">Megapari</option>
+                    <option value="1xbet:xx">1xbet - Global</option>
+                    <option value="betandyou">BetAndYou</option>
+                </select>
+            </div>
+
+            <button type="submit">Converter Código</button>
+        </form>
+
+        <div id="response_div">
+            O resultado da conversão aparecerá aqui.
+        </div>
+    </div>
+
+    <div id="copy_toast"></div>
+
+    <script>
+        function show_toast(msg) {
+            const t = document.getElementById('copy_toast');
+            t.textContent = msg;
+            t.classList.add('show');
+            clearTimeout(t._timer);
+            t._timer = setTimeout(() => t.classList.remove('show'), 1800);
+        }
+
+        async function copy_text(text) {
+            text = String(text).trim();
+            let ok = false;
+            try {
+                await navigator.clipboard.writeText(text);
+                ok = true;
+            } catch (e) {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0';
+                document.body.appendChild(ta);
+                ta.focus();
+                ta.select();
+                try { ok = document.execCommand('copy'); } catch (_) {}
+                document.body.removeChild(ta);
+            }
+            show_toast(ok ? 'Copiado: ' + text : 'Não foi possível copiar');
+        }
+
+        document.getElementById('convertForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const responseDiv = document.getElementById('response_div');
+            const submitBtn = this.querySelector('button');
+            
+            responseDiv.innerHTML = '<span style="color: var(--gold);">A processar... (pode demorar até 1 min se a casa estiver lenta)</span>';
+            submitBtn.disabled = true;
+
+            const formData = new FormData(this);
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 65000);
+
+            try {
+                const response = await fetch('/api/convert', {
+                    method: 'POST',
+                    body: formData,
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
+
+                if (!response.ok) {
+                    throw new Error(`Erro do servidor: ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                // Injeta o HTML que vem do JSON deles
+                if(data.view) {
+                    responseDiv.innerHTML = data.view + '<div class="copy-hint">Toca no resultado para copiar o código</div>';
+                } else {
+                    responseDiv.innerHTML = 'Resposta recebida, mas sem conteúdo visual.';
+                }
+
+            } catch (error) {
+                console.error(error);
+                clearTimeout(timeoutId);
+                if (error.name === 'AbortError') {
+                    responseDiv.innerHTML = `<span style="color: var(--red);">O servidor está muito lento agora. Tenta outra vez em instantes.</span>`;
+                } else {
+                    responseDiv.innerHTML = `<span style="color: var(--red);">Falha na comunicação. Verifica a internet e tenta novamente.</span>`;
+                }
+            } finally {
+                submitBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
